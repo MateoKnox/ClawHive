@@ -73,6 +73,11 @@ describe('ClawHiveEscrow', function () {
     const verifierFee = (BUDGET * 500n) / 10_000n;
     expect(workerAfter - workerBefore).to.equal(BUDGET - verifierFee);
     expect(verifierAfter - verifierBefore).to.equal(verifierFee);
+
+    expect(await escrow.reputation(worker.address)).to.equal(1n);
+    expect(await escrow.tasksAccepted(worker.address)).to.equal(1n);
+    expect(await escrow.tasksCompleted(worker.address)).to.equal(1n);
+    expect(await escrow.verifierApprovals(verifier.address)).to.equal(1n);
   });
 
   it('supports Open -> Cancelled', async function () {
