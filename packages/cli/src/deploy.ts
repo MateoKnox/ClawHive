@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ContractFactory, type Wallet } from 'ethers';
+import { ContractFactory, type ContractRunner } from 'ethers';
 
 type Artifact = {
   abi: any[];
@@ -16,7 +16,7 @@ function readArtifact(path: string): Artifact {
   return { abi: json.abi, bytecode: json.bytecode };
 }
 
-export async function deployMockUsdc(wallet: Wallet): Promise<string> {
+export async function deployMockUsdc(wallet: ContractRunner): Promise<string> {
   const artifact = readArtifact('../contracts/artifacts/contracts/MockUSDC.sol/MockUSDC.json');
   const factory = new ContractFactory(artifact.abi, artifact.bytecode, wallet);
   const contract = await factory.deploy();
@@ -25,7 +25,7 @@ export async function deployMockUsdc(wallet: Wallet): Promise<string> {
 }
 
 export async function deployEscrow(
-  wallet: Wallet,
+  wallet: ContractRunner,
   usdcAddress: string,
   gracePeriodSeconds = 24 * 60 * 60,
 ): Promise<string> {
