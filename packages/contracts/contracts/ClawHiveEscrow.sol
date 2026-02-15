@@ -52,6 +52,10 @@ contract ClawHiveEscrow is ReentrancyGuard {
     uint256 public taskCount;
 
     mapping(uint256 => Task) private tasks;
+    mapping(address => uint256) public reputation;
+    mapping(address => uint256) public tasksAccepted;
+    mapping(address => uint256) public tasksCompleted;
+    mapping(address => uint256) public verifierApprovals;
 
     event TaskCreated(
         uint256 indexed taskId,
@@ -120,6 +124,7 @@ contract ClawHiveEscrow is ReentrancyGuard {
         task.worker = msg.sender;
         task.acceptedAt = block.timestamp;
         task.status = TaskStatus.Accepted;
+        tasksAccepted[msg.sender] += 1;
 
         emit TaskAccepted(taskId, msg.sender);
     }
@@ -157,6 +162,9 @@ contract ClawHiveEscrow is ReentrancyGuard {
         require(task.status == TaskStatus.Verified, "not verified");
 
         task.status = TaskStatus.Paid;
+        reputation[task.worker] += 1;
+        tasksCompleted[task.worker] += 1;
+        verifierApprovals[task.verifier] += 1;
 
         uint256 verifierAmount = (task.budget * task.verifierFeeBps) / 10_000;
         uint256 workerAmount = task.budget - verifierAmount;
@@ -196,6 +204,13 @@ contract ClawHiveEscrow is ReentrancyGuard {
 
     function getTask(uint256 taskId) external view returns (Task memory) {
         return tasks[taskId];
+    }
+
+    function getReputationStats(address wallet) external view returns (uint256 accepted, uint256 completed, uint256 approvals, uint256 rep) {
+        accepted = tasksAccepted[wallet];
+        completed = tasksCompleted[wallet];
+        approvals = verifierApprovals[wallet];
+        rep = reputation[wallet];
     }
 
     function _safeTransfer(address token, address to, uint256 value) internal {
