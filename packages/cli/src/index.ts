@@ -15,7 +15,6 @@ import {
   toFileUri,
   toUnits,
 } from './utils.js';
-import { xmtpListen, xmtpSend } from './xmtp.js';
 
 const program = new Command();
 
@@ -177,10 +176,34 @@ program
   });
 
 program
+  .command('rep:check')
+  .argument('<wallet>', 'wallet address')
+  .action(async (walletAddress) => {
+    const escrow = getEscrowContract();
+    if (!ethers.isAddress(walletAddress)) {
+      throw new Error('invalid wallet address');
+    }
+
+    const [accepted, completed, approvals] = await escrow.getReputationStats(walletAddress);
+
+    const acceptedNum = Number(accepted);
+    const completedNum = Number(completed);
+    const approvalsNum = Number(approvals);
+    const successRate = acceptedNum === 0 ? 0 : Math.round((completedNum / acceptedNum) * 100);
+
+    console.log('Worker Reputation');
+    console.log('-----------------');
+    console.log(`Tasks completed: ${completedNum}`);
+    console.log(`Success rate: ${successRate}%`);
+    console.log(`Verifier approvals: ${approvalsNum}`);
+  });
+
+program
   .command('xmtp:send')
   .requiredOption('--to <address>', 'recipient wallet address')
   .requiredOption('--json <path>', 'json message file')
   .action(async (opts) => {
+    const { xmtpSend } = await import('./xmtp.js');
     const cfg = readConfig();
     const { wallet } = getRuntime();
     const jsonPayload = readFileSync(resolve(opts.json), 'utf8');
@@ -189,6 +212,7 @@ program
   });
 
 program.command('xmtp:listen').action(async () => {
+  const { xmtpListen } = await import('./xmtp.js');
   const cfg = readConfig();
   const { wallet } = getRuntime();
   await xmtpListen(wallet, cfg.xmtpEnv);
@@ -198,11 +222,14 @@ program.command('demo:run').action(async () => {
   const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:8545';
   const provider = new ethers.JsonRpcProvider(rpcUrl);
 
-  const requester = new ethers.Wallet(process.env.DEMO_REQUESTER_KEY || '', provider);
-  const worker = new ethers.Wallet(process.env.DEMO_WORKER_KEY || '', provider);
-  const verifier = new ethers.Wallet(process.env.DEMO_VERIFIER_KEY || '', provider);
+  const requesterWallet = new ethers.Wallet(process.env.DEMO_REQUESTER_KEY || '', provider);
+  const workerWallet = new ethers.Wallet(process.env.DEMO_WORKER_KEY || '', provider);
+  const verifierWallet = new ethers.Wallet(process.env.DEMO_VERIFIER_KEY || '', provider);
+  const requester = new ethers.NonceManager(requesterWallet);
+  const worker = new ethers.NonceManager(workerWallet);
+  const verifier = new ethers.NonceManager(verifierWallet);
 
-  if (!requester.privateKey || !worker.privateKey || !verifier.privateKey) {
+  if (!requesterWallet.privateKey || !workerWallet.privateKey || !verifierWallet.privateKey) {
     throw new Error('DEMO_REQUESTER_KEY, DEMO_WORKER_KEY, DEMO_VERIFIER_KEY are required');
   }
 
@@ -239,7 +266,10 @@ program.command('demo:run').action(async () => {
     verifier,
   );
 
-  await (await usdcRequester.mint(requester.address, ethers.parseUnits('100', 6))).wait();
+  const requesterAddress = await requester.getAddress();
+  const workerAddress = await worker.getAddress();
+  const verifierAddress = await verifier.getAddress();
+  await (await usdcRequester.mint(requesterAddress, ethers.parseUnits('100', 6))).wait();
   await (await usdcRequester.approve(escrowAddress, ethers.parseUnits('10', 6))).wait();
 
   const latest = await provider.getBlock('latest');
@@ -249,7 +279,7 @@ program.command('demo:run').action(async () => {
     await escrowRequester.createTask(
       ethers.parseUnits('10', 6),
       deadline,
-      verifier.address,
+      verifierAddress,
       500,
       sha256Hex('demo-meta'),
     )
@@ -262,7 +292,7 @@ program.command('demo:run').action(async () => {
   console.log('[demo] Success');
   console.log(`escrow=${escrowAddress}`);
   console.log(`usdc=${usdcAddress}`);
-  console.log(`workerBalance=${await usdcRequester.balanceOf(worker.address)}`);
+  console.log(`workerBalance=${await usdcRequester.balanceOf(workerAddress)}`);
 });
 
 program.parseAsync(process.argv).catch((err) => {
