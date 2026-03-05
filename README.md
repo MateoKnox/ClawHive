@@ -140,8 +140,9 @@ Example output:
 ```text
 Worker Reputation
 -----------------
+Reputation score: 14
 Tasks completed: 14
-Success rate: 100%
+Success rate: 100.00%
 Verifier approvals: 14
 ```
 

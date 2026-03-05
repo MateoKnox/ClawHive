@@ -184,15 +184,17 @@ program
       throw new Error('invalid wallet address');
     }
 
-    const [accepted, completed, approvals] = await escrow.getReputationStats(walletAddress);
+    const [accepted, completed, approvals, rep] = await escrow.getReputationStats(walletAddress);
 
     const acceptedNum = Number(accepted);
     const completedNum = Number(completed);
     const approvalsNum = Number(approvals);
-    const successRate = acceptedNum === 0 ? 0 : Math.round((completedNum / acceptedNum) * 100);
+    const repNum = Number(rep);
+    const successRate = acceptedNum === 0 ? '0.00' : ((completedNum / acceptedNum) * 100).toFixed(2);
 
     console.log('Worker Reputation');
     console.log('-----------------');
+    console.log(`Reputation score: ${repNum}`);
     console.log(`Tasks completed: ${completedNum}`);
     console.log(`Success rate: ${successRate}%`);
     console.log(`Verifier approvals: ${approvalsNum}`);
